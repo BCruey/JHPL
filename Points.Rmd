@@ -1,0 +1,184 @@
+---
+#title: "JHPL Points"
+#author: "Bryce W. Cruey"
+#date: "`r Sys.Date()`"
+output: html_document
+---
+
+<img src="C:/Users/bryce/OneDrive/Documents/_Poker/JHPL/Poker Mavens/web content/JHPL LOGO.jpg" alt="Banner Image" style="width: 100%;">
+
+## How Points Are Calculated
+
+Ever wonder how the poins are calculated? If not, too bad, I am going to spell it out for anyway. 
+
+This year I decided to switch things up based on some conversations I had with a few of the members and use a points formula that is non-linear. 
+
+
+**First here is the old formula**
+
+Points = (1-(r-1)/(n-1))*L
+
+Where:
+r = rank
+n = number of players
+L = Total players in the league
+
+You will note that this formula is linear and there is no accounting for prize pool or rebuys. Also note that regardless of the size of the tournament, first place will always get the max points because of the r-1 term. 
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+
+Points_Ex<- data.frame(Rank=c(1:50))
+n<-length(Points_Ex$Rank)
+
+for (i in 1:n){
+  Points_Ex$OldP[i]<-(1-(Points_Ex$Rank[i]-1)/(n-1))*50
+  
+}
+
+ggplot(Points_Ex) +
+  geom_line(aes(x=Rank, y=OldP), color="blue", lty=1, linewidth=1.2)+
+  theme_bw()+
+  scale_y_continuous(name="Points") +
+  scale_x_reverse(name="Rank") +
+  ggtitle("Original Points Scheme")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+#plot(Points_Ex$Rank,Points_Ex$OldP)
+
+
+```
+
+**The New Formula**
+
+To come up with the new formula, I did a deep dive into what some other clubs had done in the past and I also did a deep dive on the internet and found this site:
+
+I spent a longer amount of time then any one person should spend trying to develop a formula that brought in a few important factors. The new formula is as follows:
+
+
+\begin{equation}
+P = \frac{2\sqrt{\frac{Players}{Rank}}(1+\log{(\frac{Prize Money}{Players}+0.25)})^2}{\log{(Buyin+Rebuys+Addons+0.25)}}
+\end{equation}
+
+Where:
+
+* Players = The total number of players in the tournament 
+
+* Rank = A players finishing rank in the tournament
+
+* PrizeMoney = The total prize money for a given tournament
+
+* Buyin = A players buyin
+
+* Rebuy = A players rebuy
+
+* Addon = A players addon
+
+
+The formula gives weight to the following: 
+
+* A non-linear formula that gives higher weight to higher finishes.
+
+* Total prize pool - by accounting for this, although we do not vary the price of the tournaments, larger prize pool tournaments will add value to the points earned. Higher or lower buyin tournaments might be a future feature.
+
+* Rebuys and Add ons - This part of the formula gives players who do not rebuy in a rebuy tournament a points boost and those who do rebuy a points reduction. The boost or reduction is small, but it could affect the results at the end enough to sway the leader board.  
+
+* Number of players - gives weight to the number of players in a tournament. (less points overall for smaller tournaments.)
+
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+
+Points_Ex<- data.frame(Rank=c(1:50))
+n<-length(Points_Ex$Rank)
+
+players_ex <- c(48,20)
+
+buyin_ex50<-data.frame(Player=c(1:players_ex[1]),Buyin150=150,Rebuy150=0,Buyin50=50,Reby50=0)
+buyin_ex50$Rebuy150[1]<-150
+buyin_ex50$Rebuy150[2:4]<-150
+buyin_ex50$Rebuy150[8:10]<-150
+buyin_ex50$Rebuy150[15:18]<-150
+buyin_ex50$Rebuy150[20]<-150
+buyin_ex50$Rebuy150[24]<-150
+buyin_ex50$Rebuy150[29:31]<-150
+buyin_ex50$Rebuy150[35]<-150
+buyin_ex50$Rebuy150[39:43]<-150
+buyin_ex50$Rebuy150[47]<-150
+
+buyin_ex50$Rebuy50[1]<-50
+buyin_ex50$Rebuy50[2:4]<-50
+buyin_ex50$Rebuy50[8:10]<-50
+buyin_ex50$Rebuy50[15:18]<-50
+buyin_ex50$Rebuy50[20]<-50
+buyin_ex50$Rebuy50[24]<-50
+buyin_ex50$Rebuy50[29:31]<-50
+buyin_ex50$Rebuy50[35]<-50
+buyin_ex50$Rebuy50[39:43]<-50
+buyin_ex50$Rebuy50[47]<-50
+
+buyin_ex20<-data.frame(Player=c(1:players_ex[2]),Buyin50=50,Rebuy50=0)
+buyin_ex20$Rebuy50[1]<-50
+buyin_ex20$Rebuy50[2:4]<-50
+buyin_ex20$Rebuy50[8:10]<-50
+buyin_ex20$Rebuy50[15:17]<-50
+
+pmoney_ex<-c(0,0,0,0)
+
+pmoney_ex[1] <- sum(buyin_ex50$Buyin150)+sum(buyin_ex50$Rebuy150)
+pmoney_ex[2] <- sum(buyin_ex50$Buyin150)
+pmoney_ex[3] <- sum(buyin_ex50$Buyin50)+sum(buyin_ex50$Rebuy50)
+pmoney_ex[4] <- sum(buyin_ex50$Buyin50)
+
+for (i in 1:players_ex[1]){
+  buyin_ex50$p_rebuy_150 [i]<- 2*sqrt(players_ex[1]/i)*(1+log10(pmoney_ex[1]/players_ex[1]+0.25))^2/(log10(buyin_ex50$Buyin150[i]+buyin_ex50$Rebuy150[i]+0.25))
+  
+  buyin_ex50$p_freeze_150 [i]<- 2*sqrt(players_ex[1]/i)*(1+log10(pmoney_ex[2]/players_ex[1]+0.25))^2/(log10(buyin_ex50$Buyin150[i]+0+0.25))
+  
+    buyin_ex50$p_rebuy_50 [i]<- 2*sqrt(players_ex[1]/i)*(1+log10(pmoney_ex[3]/players_ex[1]+0.25))^2/(log10(buyin_ex50$Buyin50[i]+buyin_ex50$Rebuy50[i]+0.25))
+  
+  buyin_ex50$p_freeze_50 [i]<- 2*sqrt(players_ex[1]/i)*(1+log10(pmoney_ex[4]/players_ex[1]+0.25))^2/(log10(buyin_ex50$Buyin50[i]+0+0.25))
+  
+  
+  
+}
+
+pmoney_ex20<-c(0,0,0,0)
+
+pmoney_ex20[3] <- sum(buyin_ex20$Buyin50)+sum(buyin_ex20$Rebuy50)
+pmoney_ex20[4] <- sum(buyin_ex20$Buyin50)
+
+for (i in 1:20){
+  
+  buyin_ex20$p_rebuy_50 [i]<- 2*sqrt(players_ex[1]/i)*(1+log10(pmoney_ex20[3]/players_ex[1]+0.25))^2/(log10(buyin_ex20$Buyin50[i]+buyin_ex20$Rebuy50[i]+0.25))
+  buyin_ex20$p_freeze_50 [i]<- 2*sqrt(players_ex[1]/i)*(1+log10(pmoney_ex20[4]/players_ex[1]+0.25))^2/(log10(buyin_ex20$Buyin50[i]+0+0.25))
+  
+}
+
+#2 * SQRT(Players / Rank) * (1 + LOG(Prizemoney / Players + 0.25))^2 / (1 + LOG(Buy-in + Rebuys + Add-ons + 0.25))
+
+
+
+ggplot() +
+  geom_line(aes(x=buyin_ex50$Player, y=buyin_ex50$p_rebuy_150), color="blue", lty=1, linewidth=1.1)+
+  geom_line(aes(x=buyin_ex50$Player, y=buyin_ex50$p_freeze_150), color="brown", lty=1, linewidth=1.1)+
+ # geom_line(aes(x=buyin_ex50$Player, y=buyin_ex50$p_rebuy_50), color="green", lty=1, linewidth=1.1)+
+  geom_line(aes(x=buyin_ex50$Player, y=buyin_ex50$p_freeze_50), color="orange", lty=1, linewidth=1.1)+
+  geom_line(aes(x=buyin_ex20$Player, y=buyin_ex20$p_freeze_50), color="green", lty=1, linewidth=1.1)+
+ 
+  
+  
+  theme_bw()+
+  scale_y_continuous(name="Points") +
+  scale_x_reverse(name="Rank") +
+  ggtitle("2024 Points Scheme")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+#plot(Points_Ex$Rank,Points_Ex$OldP)
+
+
+```
+
+
